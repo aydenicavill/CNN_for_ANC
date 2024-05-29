@@ -9,7 +9,7 @@ device = (
 )
 
 ## Set Model Save Path
-model_path = './model/epoch-3.pth'
+model_path = './model/epoch-20.pth'
 save_path = '../post/results/'
 
 
@@ -20,18 +20,23 @@ test_data_path = '../../data/12_2023/Test_data_grads_off/'
 test_EMI = np.load(test_data_path+'EMI_coils_data.npy')
 test_RX = np.load(test_data_path+'RX_coils_data.npy')
 
-# normalize and zero center data
-test_EMI = test_EMI - np.mean(test_EMI)
-test_EMI = test_EMI / np.max(abs(test_EMI)) 
-test_RX = test_RX - np.mean(test_RX)
-test_RX = test_RX / np.max(abs(test_RX)) 
-
 test_EMI = np.transpose(test_EMI, (1,0,2))
 
+# extract + move real/imag components of signals into new channel
 real, imag = test_EMI.real, test_EMI.imag
 test_EMI = np.stack((real,imag),axis=1)
 real, imag = test_RX.real, test_RX.imag
 test_RX = np.stack((real,imag),axis=1)
+
+# normalize and zero center data
+div = np.expand_dims(np.max(abs(test_RX),axis=2),2)
+test_RX /= div
+sub = np.expand_dims(np.mean(test_RX,axis=2),2)
+test_RX -= sub
+div = np.expand_dims(np.max(abs(test_EMI),axis=2),3)
+test_EMI /= div
+sub = np.expand_dims(np.mean(test_EMI,axis=2),3)
+test_EMI -= sub
 
 test_emi = torch.tensor(test_EMI,dtype=torch.float)
 test_rx = torch.tensor(test_RX,dtype=torch.float)
@@ -82,7 +87,6 @@ preds = np.squeeze(preds,axis=3).detach().numpy()
 
 preds = preds[:,-noise_i:]
 labels = test_RX[:10,-noise_i:]
-print(labels.shape)
 
 corrected = labels - preds
 score = np.std(corrected,axis=0) / np.std(labels,axis=0)

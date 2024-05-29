@@ -19,6 +19,7 @@ class Net1(nn.Module):
           nn.BatchNorm2d(32),
           nn.ReLU(),
           nn.Conv2d(32,2,kernel_size=(7,1),stride=(1,1),padding=(3,0)),
+          nn.Tanh()
         )
     def forward(self, x):
         x = self.features(x)

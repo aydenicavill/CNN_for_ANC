@@ -1,4 +1,4 @@
-# 2D for use of our 12/23 data
+# 2D for use of our 12/23 data with complex split, UTD normalization
 
 import numpy as np
 import time
@@ -31,12 +31,6 @@ train_data_path = '../../data/12_2023/Train_data_grads_off/'
 train_EMI = np.load(train_data_path+'EMI_coils_data.npy')
 train_RX = np.load(train_data_path+'RX_coils_data.npy')
 
-# normalize and zero center data
-train_EMI = train_EMI - np.mean(train_EMI)
-train_EMI = train_EMI / np.max(abs(train_EMI)) 
-train_RX = train_RX - np.mean(train_RX)
-train_RX = train_RX / np.max(abs(train_RX)) 
-
 train_EMI = np.transpose(train_EMI, (1,0,2))
 
 # extract + move real/imag components of signals into new channel
@@ -44,6 +38,16 @@ real, imag = train_EMI.real, train_EMI.imag
 train_EMI = np.stack((real,imag),axis=1)
 real, imag = train_RX.real, train_RX.imag
 train_RX = np.stack((real,imag),axis=1)
+
+# normalize and zero center data
+div = np.expand_dims(np.max(abs(train_RX),axis=2),2)
+train_RX /= div
+sub = np.expand_dims(np.mean(train_RX,axis=2),2)
+train_RX -= sub
+div = np.expand_dims(np.max(abs(train_EMI),axis=2),3)
+train_EMI /= div
+sub = np.expand_dims(np.mean(train_EMI,axis=2),3)
+train_EMI -= sub
 
 train_emi, val_emi, train_rx, val_rx = train_test_split(train_EMI,train_RX,shuffle=True,test_size=0.2)
 
@@ -55,7 +59,7 @@ val_rx = torch.tensor(val_rx,dtype=torch.float) # shape: (2000, 1251)
 
 ## Set Parameters
 batch_size = 64
-epochs = 3
+epochs = 5
 lr = 0.01
 num_workers = 8
 
@@ -80,9 +84,9 @@ def train(dataloader,model,loss_fn):
     for i, (emi,rx) in enumerate(train_dl):
         inputs = emi.to(device)
         labels = torch.unsqueeze(rx,3).to(device)
-
+        
         outs = model(inputs)
-
+        print(torch.max(outs),torch.min(outs),torch.mean(outs))
         loss = loss_fn(outs,labels)
         optimizer.zero_grad()
         loss.backward()
